@@ -1,21 +1,31 @@
 # NYC Mobility data pipeline
 
-Databricks notebooks for the Green Taxi monthly pipeline. Use the Git folder on the `dev` branch and run **all cells** in order. The catalog and schemas already exist; no local installation is required.
+Databricks Git folder on the `dev` branch. The catalog `nyc_mobility` and the `nyc_bronze`, `nyc_silver`, `nyc_gold`, and `nyc_quality` schemas already exist. Source files stay in the existing volume; the repository contains notebooks, not raw data.
 
-| Order | Notebook | Purpose |
-| --- | --- | --- |
-| 01 | `notebooks/01_ingestion/green_taxi_ingestion.ipynb` | Read and inspect one source Parquet file; no writes |
-| 02 | `notebooks/02_bronze/green_taxi_bronze.ipynb` | Load that month into the Bronze Delta table |
-| 03 | `notebooks/03_silver/green_taxi_clean.ipynb` | Recreate the clean Silver view for the chosen month window |
-| 04 | `notebooks/04_quality/green_taxi_quality.ipynb` | Verify counts and data quality |
+## Green Taxi (March–May 2026)
 
-## Widgets to set in Databricks
+1. `notebooks/01_ingestion/green_taxi_ingestion.ipynb` inspects one monthly Parquet file.
+2. `notebooks/02_bronze/green_taxi_bronze.ipynb` loads each month using `COPY INTO`; set `run_month` and `source_dir` widgets independently in each notebook. Load March, April, and May. Repeating a loaded file does not add rows.
+3. `notebooks/03_silver/green_taxi_clean.ipynb` creates a Silver view. Set `start_month=2026-03` and `end_month=2026-05` to include all three months. Rerun to change the view's window; zero-distance trips are flagged, not discarded.
+4. `notebooks/04_quality/green_taxi_quality.ipynb` checks the results. Previous observed baseline: Bronze 133,367, Silver 133,355, Silver zero-distance 4,592. Confirm these in the current workspace.
 
-- For 01 and 02, set `run_month` to `2026-03`, `2026-04`, or `2026-05` (one month at a time). Set `source_dir` to `/Volumes/nyc_mobility/nyc_bronze/ftw-b12-de-r2/groups/week-08/group-c/landing/green_taxi`. These values are supplied at run time; the notebooks do not depend on the last value another notebook used.
-- Run 02 once per month. `COPY INTO` skips the same file on a rerun, so `num_inserted_rows` should be zero for a repeated month.
-- For 03, set `start_month=2026-03` and `end_month=2026-05` to cover the assignment window. The end month is inclusive. Each rerun updates the view definition; change these widgets to select another window. Run 04 after 03.
-- `catalog`, `bronze_schema`, and `silver_schema` default to `nyc_mobility`, `nyc_bronze`, and `nyc_silver`. Change them in widgets if deploying to another environment.
+For Taxi, set `source_dir` to the Green Taxi directory in the existing volume. A `COPY INTO` rerun skips an unchanged previously loaded file; replacing source bytes at the same path requires a planned backfill.
 
-The Silver view excludes pickups outside the selected window and trips whose dropoff is before pickup or missing. Zero-distance rides remain with `is_zero_distance=true`. For the current March–May Bronze data, the expected totals are 133,367 Bronze rows and 133,355 Silver rows, including 4,592 zero-distance rides. The 11 out-of-window pickups and one reversed-time trip account for the difference. No source Parquet files are stored in this repository.
+## Taxi Zones (known CSV source)
 
-**Note:** `COPY INTO` deduplicates by source file in the same Delta table. If the upstream file contents change at the same path, plan a separate backfill; a regular rerun will not replace rows already loaded from that file.
+1. Run `notebooks/02_bronze/taxi_zones_bronze.ipynb`. Its `zones_source_dir` widget defaults to the current group's landing directory and can be changed for another environment. The notebook loads **only** `taxi_zone_lookup.csv`, with CSV headers and inferred types. It does not ingest the sibling metadata JSON. A repeated `COPY INTO` skips the already loaded file.
+2. Run `notebooks/03_silver/taxi_zones_clean.ipynb`. It checks that `LocationID` is unique and non-null and `Zone` is present, then creates `nyc_mobility.nyc_silver.vw_taxi_zones_clean` with trimmed labels. Do not publish this view if the source fails those checks.
+3. Previously observed CSV baseline: **265 rows, 265 distinct IDs, no missing ID or Zone**. Confirm the new Bronze and Silver outputs in Databricks.
+
+## Weather (inspect actual source first)
+
+1. Run `notebooks/01_ingestion/weather_inventory.ipynb` to list actual weather filenames. Set its `source_file` widget to one listed `.parquet`, `.csv`, or `.json` and rerun the inspection cell to see count, schema, and sample. No write occurs.
+2. Run `notebooks/02_bronze/weather_bronze.ipynb` for **each** approved weather file, passing the exact filename in `source_file`. The `weather_source_dir` widget points to the group's landing volume by default. `COPY INTO` is idempotent per file and loads only that filename; CSV expects headers, JSON expects a multiline document, and Parquet uses the embedded schema. Files for the same Bronze table must have a compatible schema.
+3. Run `notebooks/03_silver/weather_clean.ipynb` with `start_month=2026-03`, `end_month=2026-05`. It accepts a flat hourly file containing `temperature_2m` and a recognized time field (`time`, `timestamp`, `datetime`, `observation_time`, `date`), or nested Open-Meteo `hourly` arrays of `time` and `temperature_2m`. For another flat time name set `time_column`. Optional recognized arrays/columns are `precipitation`, `rain`, and `snowfall`. Unsupported fields and invalid timestamps fail clearly rather than creating a misleading view. The view includes `observation_hour` and available weather metrics.
+4. Run `notebooks/04_quality/zones_weather_quality.ipynb`. Check the zone count/key, weather coverage, temperature nulls, and duplicate hours **before** any weather-to-taxi join. The weather data's source timezone and hourly grain must be confirmed from the source metadata; the notebook cannot infer them reliably from a file name.
+
+`catalog`, `bronze_schema`, and `silver_schema` are widgets with current project defaults. Source directories are configurable widgets. A `CREATE OR REPLACE VIEW` uses the window from the latest run; changing widgets alone does not change an existing view until that notebook is run again.
+
+## Current scope
+
+Green Taxi, Taxi Zones and Weather notebooks are stored in Git. The weather files and their schema could not be read from Git, so live Weather execution and expected Weather row counts remain to be verified in Databricks. Gold joins, orchestration, and end-to-end runtime validation are separate follow-up tasks.
