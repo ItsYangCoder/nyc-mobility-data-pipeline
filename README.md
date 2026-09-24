@@ -2,6 +2,10 @@
 
 Databricks Git folder on the `dev` branch. The catalog `nyc_mobility` and the `nyc_bronze`, `nyc_silver`, `nyc_gold`, and `nyc_quality` schemas already exist. Source files stay in the existing volume; the repository contains notebooks, not raw data.
 
+## Local rule tests
+
+From the repository root, run `python3 -m pip install -r requirements-dev.txt` and `python3 -m pytest -q tests/`. CI runs the same tests on pull requests and pushes to `dev`. `quality_rules.py` is imported by the notebooks from this Databricks Git folder; run the updated notebooks from the Git folder, not detached workspace copies.
+
 ## Green Taxi (March–May 2026)
 
 1. `notebooks/01_ingestion/green_taxi_ingestion.ipynb` inspects one monthly Parquet file.
