@@ -14,7 +14,7 @@ For Taxi, set `source_dir` to the Green Taxi directory in the existing volume. A
 ## Taxi Zones (known CSV source)
 
 1. Run `notebooks/01_ingestion/taxi_zones_ingestion.ipynb` to read and profile the CSV without writing a table. Its source directory and CSV filename are widgets.
-2. Run `notebooks/02_bronze/taxi_zones_bronze.ipynb`. Its `zones_source_dir` widget defaults to the current group's landing directory and can be changed for another environment. The notebook loads **only** `taxi_zone_lookup.csv`, with CSV headers and inferred types. It does not ingest the sibling metadata JSON. A repeated `COPY INTO` skips the already loaded file.
+2. Run `notebooks/02_bronze/taxi_zones_bronze.ipynb`. Its `zones_source_dir` and `source_file` widgets default to the current group's landing directory and `taxi_zone_lookup.csv`; both can be changed for another valid source. The notebook loads **only** `taxi_zone_lookup.csv`, with CSV headers and inferred types. It does not ingest the sibling metadata JSON. A repeated `COPY INTO` skips the already loaded file.
 3. Run `notebooks/03_silver/taxi_zones_clean.ipynb`. It checks that `LocationID` is unique and non-null and `Zone` is present, then creates `nyc_mobility.nyc_silver.vw_taxi_zones_clean` with trimmed labels. Do not publish this view if the source fails those checks.
 4. Previously observed CSV baseline: **265 rows, 265 distinct IDs, no missing ID or Zone**. Confirm the new Bronze and Silver outputs in Databricks.
 
