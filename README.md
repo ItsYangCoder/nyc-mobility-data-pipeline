@@ -2,6 +2,10 @@
 
 Databricks Git folder on the `dev` branch. The catalog `nyc_mobility` and the `nyc_bronze`, `nyc_silver`, `nyc_gold`, and `nyc_quality` schemas already exist. Source files stay in the existing volume; the repository contains notebooks, not raw data.
 
+## Automated runs
+
+Use `notebooks/00_pipeline/run_pipeline.ipynb` for a complete batch discovered from the Volume. Set the source-directory widgets for the environment; see [Dynamic Bronze runs](docs/dynamic_bronze.md) for input contracts, audit results, and schedule readiness. The per-file notebooks below remain useful for inspection and manual backfills.
+
 ## Local rule tests
 
 From the repository root, run `python3 -m pip install -r requirements-dev.txt` and `python3 -m pytest -q tests/`. CI runs the same tests on pull requests and pushes to `dev`. `quality_rules.py` is imported by the notebooks from this Databricks Git folder; run the updated notebooks from the Git folder, not detached workspace copies.
