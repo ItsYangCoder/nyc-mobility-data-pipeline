@@ -2,6 +2,8 @@
 
 The Gold model supports three questions: when and where taxi demand peaks, how weather relates to trips, and which zones show sustained activity. The model is built by `notebooks/04_gold/gold_marts.ipynb` from the three Silver views.
 
+![NYC Mobility Star Schema](img/nyc-mobility-star-schema.jpeg)
+
 | Object | Grain | Key or link | Purpose |
 | --- | --- | --- | --- |
 | `fact_taxi_trip` | One retained Green Taxi trip | `trip_key` | Counts, distance, duration, fares; pickup and dropoff date, hour, and zone keys; pickup weather hour |
