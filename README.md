@@ -27,6 +27,14 @@ For Taxi, set `source_dir` to the Green Taxi directory in the existing volume. A
 
 `catalog`, `bronze_schema`, and `silver_schema` are widgets with current project defaults. Source directories are configurable widgets. A `CREATE OR REPLACE VIEW` uses the window from the latest run; changing widgets alone does not change an existing view until that notebook is run again.
 
+## Gold (after Silver and quality checks)
+
+1. Confirm all three Silver views cover March–May 2026, and run the existing quality notebooks. Observed in Databricks: Taxi Silver 133,355 rows (133,355 distinct projected trips), Zones 265 unique IDs, Weather 2,208 unique hours. The Taxi-to-Zones-and-Weather check found zero unmatched keys; rerun checks if sources change.
+2. Run `notebooks/04_gold/gold_marts.ipynb`. The catalog and Silver/Gold schema widgets default to `nyc_mobility`, `nyc_silver`, and `nyc_gold`. It checks trip, zone, and weather grains and joins, then creates three views: `dim_zone` (one row per zone), `dim_weather_hour` (one row per weather hour), and `fact_taxi_trip` (one row per Taxi Silver row). `weather_hour` derives from pickup local wall time; the three views read the current Silver window and do not copy the source data.
+3. Run `notebooks/04_quality/gold_quality.ipynb` and check that it prints `Gold grain and relationships: PASS`. Any duplicate key, multiplied join, or missing zone/weather relationship raises an error.
+
+`trip_key` is a deterministic SHA-256 fingerprint of all ten currently selected Silver Taxi fields. Their observed rows are distinct, so the fingerprint provides a key for this data set. If a future source contains genuinely separate trips with identical selected values, use a real source trip/row identifier before relying on this key. These Gold notebooks are committed to Git but need a live Databricks run to verify the Gold counts.
+
 ## Current scope
 
-Green Taxi, Taxi Zones and Weather notebooks are stored in Git. The weather files and their schema could not be read from Git, so live Weather execution and expected Weather row counts remain to be verified in Databricks. Gold joins, orchestration, and end-to-end runtime validation are separate follow-up tasks.
+The source inspections, Bronze loads, Silver views, quality checks, and Gold views are in Git. End-to-end job orchestration and live Gold runtime validation remain follow-up tasks.
