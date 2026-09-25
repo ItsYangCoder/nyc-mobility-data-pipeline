@@ -27,6 +27,20 @@ def parse_args(argv=None):
     return dict(args.param)
 
 
+def ensure_bronze_metadata_columns(spark, table):
+    """Prepare existing Bronze tables for metadata on future file loads."""
+    fields = spark.table(table).schema.fields
+    if not fields:  # A new schemaless table lets COPY INTO infer every column.
+        return
+    present = {field.name.lower() for field in fields}
+    missing = [definition for name, definition in (
+        ("source_file_path", "source_file_path STRING"),
+        ("source_ingested_at", "source_ingested_at TIMESTAMP"),
+    ) if name not in present]
+    if missing:
+        spark.sql(f"ALTER TABLE {table} ADD COLUMNS ({', '.join(missing)})")
+
+
 def run_file(path, spark, options, dbutils=None, display=None):
     path = Path(path).resolve()
     if not path.is_file() or path.suffix != ".py":
