@@ -64,22 +64,35 @@ def check_weather_file_source(spark, table, source_file, source_path):
     """Block a second weather document covering dates already in Bronze."""
     import re
 
-    match = re.fullmatch(r"weather_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.json", source_file)
+    match = re.fullmatch(
+        r"weather_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.(?:json|csv|parquet)",
+        source_file,
+    )
     if not match:
         raise ValueError("Weather source filename must specify its date range")
     start, end = match.groups()
     if start > end:
         raise ValueError("Weather source date range is reversed")
-    if "hourly" not in {f.name.lower() for f in spark.table(table).schema.fields}:
+    fields = {f.name.lower(): f.name for f in spark.table(table).schema.fields}
+    if not fields:
         return
+    if "hourly" in fields:
+        first = "SUBSTRING(CAST(array_min(hourly.time) AS STRING), 1, 10)"
+        last = "SUBSTRING(CAST(array_max(hourly.time) AS STRING), 1, 10)"
+    else:
+        time_column = next((fields[name] for name in
+                            ("time", "timestamp", "datetime", "observation_time", "date")
+                            if name in fields), None)
+        if time_column is None:
+            raise ValueError("Existing Weather table has no recognized hourly time field")
+        first = last = f"SUBSTRING(CAST(`{time_column}` AS STRING), 1, 10)"
     result = spark.sql(f"""
         SELECT COUNT_IF(source_file_path IS NULL OR source_file_path <> '{source_path}')
                    AS other_source_rows
         FROM {table}
-        WHERE array_min(hourly.time) IS NULL
-           OR array_max(hourly.time) IS NULL
-           OR (SUBSTRING(CAST(array_min(hourly.time) AS STRING), 1, 10) <= '{end}'
-           AND SUBSTRING(CAST(array_max(hourly.time) AS STRING), 1, 10) >= '{start}')
+        WHERE {first} IS NULL
+           OR {last} IS NULL
+           OR ({first} <= '{end}' AND {last} >= '{start}')
     """).first()
     if result.other_source_rows:
         raise ValueError("Weather date range already has rows with unknown or different "
