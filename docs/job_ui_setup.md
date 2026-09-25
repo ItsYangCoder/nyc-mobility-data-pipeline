@@ -25,4 +25,4 @@ For `bronze`, an example of the first three argument tokens is `["--param", "tax
 
 ## Before the first run
 
-Creating the Job does not validate its data. Existing taxi, weather, and zone Bronze rows lack file provenance. The guards intentionally stop a reload of those historical sources from another path; do not force COPY INTO, reset tables, or backfill fabricated timestamps to bypass them. Resolve the legacy lineage first, then test one controlled run and review the Bronze audit and Gold quality output before enabling a schedule or merging to `dev`.
+Pull this branch into the Databricks Git folder and update the paths of any existing Job tasks to the numbered folders above. Review the [Bronze lineage and retry rules](dynamic_bronze.md) before a controlled first run. Check the Bronze audit and Gold quality output before enabling a schedule or merging to `dev`.
