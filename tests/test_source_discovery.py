@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from source_discovery import plan_batch
+from source_discovery import plan_batch, weather_hour_bounds
 
 
 @dataclass(frozen=True)
@@ -106,3 +106,20 @@ def test_reject_empty_source(batch_files):
     weather[0] = File(weather[0].name, 0)
     with pytest.raises(ValueError, match="empty source"):
         plan_batch(taxi, weather, zones)
+
+
+@pytest.mark.parametrize(
+    ("filename", "expected"),
+    [
+        ("weather_2026-03-01_2026-03-31.json", ("2026-03-01T00:00", "2026-03-31T23:00")),
+        ("weather_2024-02-01_2024-02-29.csv", ("2024-02-01T00:00", "2024-02-29T23:00")),
+        ("weather_2026-05-01_2026-05-31.parquet", ("2026-05-01T00:00", "2026-05-31T23:00")),
+    ],
+)
+def test_weather_hour_bounds_exclude_file_extension(filename, expected):
+    assert weather_hour_bounds(filename) == expected
+
+
+def test_weather_hour_bounds_reject_bad_filename():
+    with pytest.raises(ValueError, match="Unexpected Weather"):
+        weather_hour_bounds("weather_2026-03-01_2026-03-31_metadata.json")

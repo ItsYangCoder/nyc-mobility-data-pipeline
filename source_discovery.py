@@ -22,6 +22,15 @@ class SourceBatch:
     zone_file: str
 
 
+def weather_hour_bounds(filename):
+    """Return expected local first and last hour from a validated weather filename."""
+    match = _WEATHER.fullmatch(filename)
+    if not match:
+        raise ValueError(f"Unexpected Weather source filename: {filename}")
+    first_day, last_day, _format = match.groups()
+    return f"{first_day}T00:00", f"{last_day}T23:00"
+
+
 def _files(listing, prefix, metadata_suffix=None):
     """Validate matching file names and sizes before any table write."""
     result = []
