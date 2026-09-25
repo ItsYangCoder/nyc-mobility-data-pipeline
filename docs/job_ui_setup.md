@@ -1,0 +1,28 @@
+# NYC Mobility Job: manual Databricks UI setup
+
+Create one **unscheduled** Databricks Job with Python script tasks from the `refactor/silver-taxi-python-script` Git folder. Keep max concurrent runs at **1**. This uses no bundle deployment. Use the same workspace source for every task and review the selected paths before saving.
+
+## Job parameters
+
+Set `catalog`, `bronze_schema`, `silver_schema`, `gold_schema`, `quality_schema`, `taxi_source_dir`, `weather_source_dir`, `zones_source_dir`, `zone_file`, and `max_valid_distance_miles` as Job parameters. Use actual existing Volume directories for the three source directories. Defaults for this dev workspace: `nyc_mobility`, `nyc_bronze`, `nyc_silver`, `nyc_gold`, `nyc_quality`, `taxi_zone_lookup.csv`, and `100`. Keep source directories outside the code.
+
+## Tasks
+
+Choose **Python script** / **Workspace** for each file. Each parameter below means three consecutive script arguments: `--param`, its name, and its value. Use `{{job.parameters.NAME}}` for named Job parameters.
+
+| Task key | Python file | Depends on | Parameters |
+| --- | --- | --- | --- |
+| `bronze` | `pipeline/01_bronze/bronze_auto_ingest.py` | — | `taxi_source_dir`, `weather_source_dir`, `zones_source_dir`, `zone_file`, `catalog`, `bronze_schema`, `quality_schema` |
+| `silver_taxi` | `pipeline/02_silver/green_taxi_clean.py` | `bronze` | `start_month={{tasks.bronze.values.start_month}}`, `end_month={{tasks.bronze.values.end_month}}`, `catalog`, `bronze_schema`, `silver_schema` |
+| `silver_weather` | `pipeline/02_silver/weather_clean.py` | `silver_taxi` | Same month references, `catalog`, `bronze_schema`, `silver_schema` |
+| `silver_zones` | `pipeline/02_silver/taxi_zones_clean.py` | `silver_weather` | `catalog`, `bronze_schema`, `silver_schema` |
+| `taxi_quality` | `pipeline/03_quality/green_taxi_quality.py` | `silver_zones` | `catalog`, `bronze_schema`, `silver_schema` |
+| `zones_weather_quality` | `pipeline/03_quality/zones_weather_quality.py` | `taxi_quality` | `catalog`, `silver_schema` |
+| `gold` | `pipeline/04_gold/gold_marts.py` | `zones_weather_quality` | `catalog`, `silver_schema`, `gold_schema`, `max_valid_distance_miles` |
+| `gold_quality` | `pipeline/04_gold/gold_quality.py` | `gold` | `catalog`, `silver_schema`, `gold_schema` |
+
+For `bronze`, an example of the first three argument tokens is `["--param", "taxi_source_dir", "{{job.parameters.taxi_source_dir}}"]`; append each other parameter the same way. The `bronze` task publishes `start_month` and `end_month` task values for Silver. Do not substitute fixed month strings. Leave retries and schedule disabled during validation.
+
+## Before the first run
+
+Pull this branch into the Databricks Git folder and update the paths of any existing Job tasks to the numbered folders above. Review the [Bronze lineage and retry rules](dynamic_bronze.md) before a controlled first run. Check the Bronze audit and Gold quality output before enabling a schedule or merging to `dev`.
