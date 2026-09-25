@@ -41,6 +41,25 @@ def ensure_bronze_metadata_columns(spark, table):
         spark.sql(f"ALTER TABLE {table} ADD COLUMNS ({', '.join(missing)})")
 
 
+def check_taxi_month_source(spark, table, month, source_path):
+    """Fail closed when a taxi month already contains rows from another file path."""
+    if "lpep_pickup_datetime" not in {f.name.lower() for f in spark.table(table).schema.fields}:
+        return  # New schemaless table.
+    result = spark.sql(f"""
+        SELECT COUNT(*) AS existing_rows,
+               COUNT_IF(source_file_path IS NULL OR source_file_path <> '{source_path}')
+                   AS other_source_rows
+        FROM {table}
+        WHERE lpep_pickup_datetime >= DATE '{month}-01'
+          AND lpep_pickup_datetime < ADD_MONTHS(DATE '{month}-01', 1)
+    """).first()
+    if result.other_source_rows:
+        raise ValueError(
+            f"Taxi month {month} already has {result.other_source_rows} rows with unknown or "
+            "different source paths; reconcile before loading another path"
+        )
+
+
 def run_file(path, spark, options, dbutils=None, display=None):
     path = Path(path).resolve()
     if not path.is_file() or path.suffix != ".py":
