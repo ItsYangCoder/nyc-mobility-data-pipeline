@@ -76,8 +76,10 @@ def check_weather_file_source(spark, table, source_file, source_path):
         SELECT COUNT_IF(source_file_path IS NULL OR source_file_path <> '{source_path}')
                    AS other_source_rows
         FROM {table}
-        WHERE TO_DATE(array_min(hourly.time)) <= DATE '{end}'
-          AND TO_DATE(array_max(hourly.time)) >= DATE '{start}'
+        WHERE array_min(hourly.time) IS NULL
+           OR array_max(hourly.time) IS NULL
+           OR (SUBSTRING(CAST(array_min(hourly.time) AS STRING), 1, 10) <= '{end}'
+           AND SUBSTRING(CAST(array_max(hourly.time) AS STRING), 1, 10) >= '{start}')
     """).first()
     if result.other_source_rows:
         raise ValueError("Weather date range already has rows with unknown or different "
