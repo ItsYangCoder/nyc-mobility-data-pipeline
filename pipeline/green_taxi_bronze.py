@@ -1,6 +1,6 @@
 """Databricks Spark stage; callable directly from Python tests."""
 
-from runtime import Parameters, ensure_bronze_metadata_columns, execute
+from runtime import Parameters, check_taxi_month_source, ensure_bronze_metadata_columns, execute
 
 def run(spark, options=None, dbutils=None, display=None):
     params = Parameters(options)
@@ -40,6 +40,9 @@ def run(spark, options=None, dbutils=None, display=None):
     # Create an empty, schemaless Delta table so COPY INTO can infer the Parquet schema.
     spark.sql(f"CREATE TABLE IF NOT EXISTS {bronze_table}")
     ensure_bronze_metadata_columns(spark, bronze_table)
+    check_taxi_month_source(
+        spark, bronze_table, run_month, f"dbfs:{source_dir}/{file_name}"
+    )
     # The source timestamps use TIMESTAMP_NTZ. Enable this feature BEFORE loading.
     spark.sql(f"""
         ALTER TABLE {bronze_table}
