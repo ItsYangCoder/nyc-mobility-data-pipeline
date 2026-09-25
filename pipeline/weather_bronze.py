@@ -1,6 +1,6 @@
 """Databricks Spark stage; callable directly from Python tests."""
 
-from runtime import Parameters, ensure_bronze_metadata_columns, execute
+from runtime import Parameters, check_weather_file_source, ensure_bronze_metadata_columns, execute
 
 def run(spark, options=None, dbutils=None, display=None):
     params = Parameters(options)
@@ -46,6 +46,8 @@ def run(spark, options=None, dbutils=None, display=None):
 
     spark.sql(f"CREATE TABLE IF NOT EXISTS {bronze_table}")
     ensure_bronze_metadata_columns(spark, bronze_table)
+    check_weather_file_source(spark, bronze_table, source_file,
+                              f"dbfs:{source_dir}/{source_file}")
     # Timestamp-without-timezone fields require this Delta feature when present.
     spark.sql(f"""
         ALTER TABLE {bronze_table}
