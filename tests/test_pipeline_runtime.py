@@ -2,7 +2,47 @@ from pathlib import Path
 
 import pytest
 
-from pipeline.runtime import Parameters, check_taxi_month_source, ensure_bronze_metadata_columns, parse_args, run_file
+from pipeline.runtime import (Parameters, check_taxi_month_source, check_weather_file_source,
+                              check_zones_source, ensure_bronze_metadata_columns, parse_args, run_file)
+
+
+@pytest.mark.parametrize("source,should_fail", [(None, True), ("dbfs:/other.json", True),
+                                                  ("dbfs:/same.json", False)])
+def test_weather_source_guard(source, should_fail):
+    from types import SimpleNamespace
+
+    class FakeSpark:
+        def table(self, table):
+            return SimpleNamespace(schema=SimpleNamespace(fields=[SimpleNamespace(name="hourly")]))
+
+        def sql(self, query):
+            assert "2026-03-01" in query and "2026-03-31" in query
+            assert "array_min(hourly.time)" in query and "array_max(hourly.time)" in query
+            return SimpleNamespace(first=lambda: SimpleNamespace(
+                other_source_rows=int(source != "dbfs:/same.json")))
+
+    check = lambda: check_weather_file_source(
+        FakeSpark(), "c.s.weather_raw", "weather_2026-03-01_2026-03-31.json", "dbfs:/same.json")
+    if should_fail:
+        with pytest.raises(ValueError, match="unknown or different"):
+            check()
+    else:
+        check()
+
+
+def test_zones_source_guard_blocks_untracked_rows():
+    from types import SimpleNamespace
+
+    class FakeSpark:
+        def table(self, table):
+            return SimpleNamespace(schema=SimpleNamespace(fields=[SimpleNamespace(name="LocationID")]))
+
+        def sql(self, query):
+            assert "source_file_path IS NULL" in query
+            return SimpleNamespace(first=lambda: SimpleNamespace(other_source_rows=265))
+
+    with pytest.raises(ValueError, match="unknown or different"):
+        check_zones_source(FakeSpark(), "c.s.taxi_zones_raw", "dbfs:/same.csv")
 
 
 @pytest.mark.parametrize("source,should_fail", [(None, True), ("dbfs:/different/file.parquet", True),
