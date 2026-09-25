@@ -2,7 +2,33 @@ from pathlib import Path
 
 import pytest
 
-from pipeline.runtime import Parameters, parse_args, run_file
+from pipeline.runtime import Parameters, ensure_bronze_metadata_columns, parse_args, run_file
+
+
+@pytest.mark.parametrize("present,expected", [
+    ([], None),
+    (["trip_distance"], "source_file_path STRING, source_ingested_at TIMESTAMP"),
+    (["trip_distance", "source_file_path"], "source_ingested_at TIMESTAMP"),
+    (["trip_distance", "source_file_path", "source_ingested_at"], None),
+])
+def test_existing_bronze_metadata_schema(present, expected):
+    from types import SimpleNamespace
+
+    class FakeSpark:
+        def __init__(self):
+            self.queries = []
+
+        def table(self, table):
+            return SimpleNamespace(schema=SimpleNamespace(fields=[SimpleNamespace(name=name) for name in present]))
+
+        def sql(self, query):
+            self.queries.append(query)
+
+    spark = FakeSpark()
+    ensure_bronze_metadata_columns(spark, "test_catalog.test_schema.test_table")
+    assert spark.queries == ([] if expected is None else [
+        f"ALTER TABLE test_catalog.test_schema.test_table ADD COLUMNS ({expected})"
+    ])
 
 
 def test_dynamic_parameters_override_defaults():
