@@ -52,3 +52,19 @@ def test_analytics_queries_use_configured_catalog_and_schema(stage, monkeypatch)
     assert spark.queries
     assert all("test_catalog.test_gold." in query for query in spark.queries)
     assert all("nyc_mobility.nyc_gold." not in query for query in spark.queries)
+
+def test_script_entrypoints_work_without_notebook_file_global():
+    """Databricks can launch a workspace script without defining __file__."""
+    import ast
+    from pathlib import Path
+
+    for path in (Path(__file__).resolve().parents[1] / "pipeline").glob("*.py"):
+        tree = ast.parse(path.read_text())
+        entrypoints = [node for node in tree.body if isinstance(node, ast.If)
+                       and ast.unparse(node.test) == "__name__ == '__main__'"]
+        for entrypoint in entrypoints:
+            calls = []
+            namespace = {"__name__": "__main__", "run": object(),
+                         "execute": lambda fn: calls.append(fn)}
+            exec(compile(ast.Module(body=[entrypoint], type_ignores=[]), str(path), "exec"), namespace)
+            assert calls == [namespace["run"]], path

@@ -37,9 +37,9 @@ def run_file(path, spark, options, dbutils=None, display=None):
     return module.run(spark, options, dbutils, display)
 
 
-def execute(script, run):
+def execute(run):
     options = parse_args()
-    root = Path(script).resolve().parent.parent
+    root = Path(__file__).resolve().parent.parent
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
     from pyspark.sql import SparkSession

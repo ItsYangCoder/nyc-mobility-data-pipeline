@@ -91,4 +91,4 @@ def run(spark, options=None, dbutils=None, display=None):
 
 
 if __name__ == "__main__":
-    execute(__file__, run)
+    execute(run)
