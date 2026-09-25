@@ -1,6 +1,9 @@
-"""Databricks Spark stage; callable directly from Python tests."""
+"""Load one Taxi Zones CSV into Bronze, preserving file lineage."""
+
+import re
 
 from runtime import Parameters, check_zones_source, ensure_bronze_metadata_columns, execute
+
 
 def run(spark, options=None, dbutils=None, display=None):
     params = Parameters(options)
@@ -9,11 +12,6 @@ def run(spark, options=None, dbutils=None, display=None):
     if dbutils is None:
         from pyspark.dbutils import DBUtils
         dbutils = DBUtils(spark)
-
-    # The volume directory is a widget. COPY INTO loads only the CSV file and skips it on a rerun; the metadata JSON is excluded.
-
-
-    import re
 
     params.register("zones_source_dir", "", "Taxi Zones directory")
     params.register("source_file", "", "Taxi Zones CSV filename")
@@ -36,8 +34,6 @@ def run(spark, options=None, dbutils=None, display=None):
         raise FileNotFoundError(f"{source_file} is missing in {source_dir}")
     bronze_table = f"{catalog}.{bronze_schema}.taxi_zones_raw"
     print(f"Source: {source_dir}/{source_file}; target: {bronze_table}")
-
-
     spark.sql(f"CREATE TABLE IF NOT EXISTS {bronze_table}")
     ensure_bronze_metadata_columns(spark, bronze_table)
     check_zones_source(spark, bronze_table, f"dbfs:{source_dir}/{source_file}")
@@ -56,7 +52,6 @@ def run(spark, options=None, dbutils=None, display=None):
     copy_result = result.first().asDict()
     display(spark.createDataFrame([copy_result]))
     display(spark.sql(f"SELECT COUNT(*) AS bronze_rows FROM {bronze_table}"))
-    import json
     return copy_result
 
 
