@@ -31,6 +31,20 @@ def weather_hour_bounds(filename):
     return f"{first_day}T00:00", f"{last_day}T23:00"
 
 
+def validate_weather_hour_stats(stats, filename):
+    """Require exactly one observation for every local hour in a source month."""
+    first, last = weather_hour_bounds(filename)
+    expected = (date.fromisoformat(last[:10]) - date.fromisoformat(first[:10])).days * 24 + 24
+    if (
+        stats["rows"] != expected
+        or stats["unique"] != expected
+        or stats["first"] != first
+        or stats["last"] != last
+    ):
+        details = {key: stats[key] for key in ("rows", "unique", "first", "last")}
+        raise ValueError(f"Weather hourly coverage/uniqueness failed: {filename}: {details}")
+
+
 def _files(listing, prefix, metadata_suffix=None):
     """Validate matching file names and sizes before any table write."""
     result = []
