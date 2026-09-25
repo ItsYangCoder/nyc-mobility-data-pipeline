@@ -18,6 +18,8 @@ def test_weather_source_guard(source, should_fail):
         def sql(self, query):
             assert "2026-03-01" in query and "2026-03-31" in query
             assert "array_min(hourly.time)" in query and "array_max(hourly.time)" in query
+            assert "SUBSTRING(CAST(array_min(hourly.time) AS STRING), 1, 10)" in query
+            assert "array_min(hourly.time) IS NULL" in query
             return SimpleNamespace(first=lambda: SimpleNamespace(
                 other_source_rows=int(source != "dbfs:/same.json")))
 
