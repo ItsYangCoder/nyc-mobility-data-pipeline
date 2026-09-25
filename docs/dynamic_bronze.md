@@ -1,6 +1,8 @@
 # Dynamic monthly Bronze runs
 
-Run `notebooks/00_pipeline/run_pipeline.ipynb` as the Databricks Job notebook task. Configure the three Volume directories and catalog/schema widgets for the environment. The default directories point to the current group's landing folders; months and weather filenames are discovered from the Volume on every run. The controller runs Bronze, Silver, the existing quality notebooks, Gold, and Gold quality in order. A failure stops downstream tasks.
+The unscheduled dev Job in `databricks.yml` runs Bronze, Silver, quality, and Gold as eight visible notebook tasks. Bronze passes discovered months to Silver using task values. `notebooks/00_pipeline/run_pipeline.ipynb` remains available until the Job passes a full dev run. The Job has no production target or schedule; deployment and execution require Databricks credentials.
+
+After pulling `dev` in VS Code, validate and deploy the dev Job with `databricks bundle validate -t dev` and `databricks bundle deploy -t dev`. Run it manually with `databricks bundle run -t dev nyc_mobility` after reviewing compute settings. The repository's Python unit tests do not execute Databricks tasks.
 
 Before writing, `bronze_auto_ingest.ipynb` requires nonempty, contiguous monthly Taxi Parquet and Weather JSON/CSV/Parquet files covering the **same months**, plus a nonempty Taxi Zones CSV. Filenames must match `green_tripdata_YYYY-MM.parquet` and `weather_YYYY-MM-01_YYYY-MM-lastday.<format>`; metadata JSON files are ignored. Preflight checks required schemas, weather timezone (`America/New_York`), complete hourly date boundaries, and duplicate hours. It fails on missing/extra months or malformed files. The Silver start/end widgets receive the discovered window, including a new month without a code change.
 
