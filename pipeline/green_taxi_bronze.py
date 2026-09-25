@@ -1,6 +1,10 @@
-"""Databricks Spark stage; callable directly from Python tests."""
+"""Load one Green Taxi month into Bronze, preserving file lineage."""
 
+import re
+
+from quality_rules import parse_month
 from runtime import Parameters, check_taxi_month_source, ensure_bronze_metadata_columns, execute
+
 
 def run(spark, options=None, dbutils=None, display=None):
     params = Parameters(options)
@@ -9,12 +13,6 @@ def run(spark, options=None, dbutils=None, display=None):
     if dbutils is None:
         from pyspark.dbutils import DBUtils
         dbutils = DBUtils(spark)
-
-    # Pass the source parameters before running. COPY INTO skips a file already loaded into the same table.
-
-
-    from quality_rules import parse_month
-    import re
 
     params.register("run_month", "", "Run month (YYYY-MM)")
     params.register("source_dir", "", "Green Taxi volume directory")
@@ -35,15 +33,13 @@ def run(spark, options=None, dbutils=None, display=None):
     bronze_table = f"{catalog}.{bronze_schema}.green_taxi_raw"
     file_name = f"green_tripdata_{run_month}.parquet"
     print(f"Loading {source_dir}/{file_name} into {bronze_table}")
-
-
     # Create an empty, schemaless Delta table so COPY INTO can infer the Parquet schema.
     spark.sql(f"CREATE TABLE IF NOT EXISTS {bronze_table}")
     ensure_bronze_metadata_columns(spark, bronze_table)
     check_taxi_month_source(
         spark, bronze_table, run_month, f"dbfs:{source_dir}/{file_name}"
     )
-    # The source timestamps use TIMESTAMP_NTZ. Enable this feature BEFORE loading.
+    # The source timestamps use TIMESTAMP_NTZ.
     spark.sql(f"""
         ALTER TABLE {bronze_table}
         SET TBLPROPERTIES ('delta.feature.timestampNtz' = 'supported')
@@ -62,10 +58,7 @@ def run(spark, options=None, dbutils=None, display=None):
     """)
     copy_result = result.first().asDict()
     display(spark.createDataFrame([copy_result]))
-
-
     display(spark.sql(f"SELECT COUNT(*) AS bronze_rows FROM {bronze_table}"))
-    import json
     return copy_result
 
 
