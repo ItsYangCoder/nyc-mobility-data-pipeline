@@ -38,6 +38,7 @@ def run_file(path, spark, options, dbutils=None, display=None):
 
 
 def execute(script, run):
+    options = parse_args()
     root = Path(script).resolve().parent.parent
     if str(root) not in sys.path:
         sys.path.insert(0, str(root))
@@ -46,6 +47,6 @@ def execute(script, run):
     spark = SparkSession.builder.getOrCreate()
     from pyspark.dbutils import DBUtils
 
-    result = run(spark, parse_args(), DBUtils(spark), lambda frame: frame.show(20, truncate=False))
+    result = run(spark, options, DBUtils(spark), lambda frame: frame.show(20, truncate=False))
     if result is not None:
         print(result)
