@@ -60,6 +60,44 @@ def check_taxi_month_source(spark, table, month, source_path):
         )
 
 
+def check_weather_file_source(spark, table, source_file, source_path):
+    """Block a second weather document covering dates already in Bronze."""
+    import re
+
+    match = re.fullmatch(r"weather_(\d{4}-\d{2}-\d{2})_(\d{4}-\d{2}-\d{2})\.json", source_file)
+    if not match:
+        raise ValueError("Weather source filename must specify its date range")
+    start, end = match.groups()
+    if start > end:
+        raise ValueError("Weather source date range is reversed")
+    if "hourly" not in {f.name.lower() for f in spark.table(table).schema.fields}:
+        return
+    result = spark.sql(f"""
+        SELECT COUNT_IF(source_file_path IS NULL OR source_file_path <> '{source_path}')
+                   AS other_source_rows
+        FROM {table}
+        WHERE TO_DATE(array_min(hourly.time)) <= DATE '{end}'
+          AND TO_DATE(array_max(hourly.time)) >= DATE '{start}'
+    """).first()
+    if result.other_source_rows:
+        raise ValueError("Weather date range already has rows with unknown or different "
+                         "source paths; reconcile before loading another path")
+
+
+def check_zones_source(spark, table, source_path):
+    """Block loading another zone lookup over an existing unknown source."""
+    if "locationid" not in {f.name.lower() for f in spark.table(table).schema.fields}:
+        return
+    result = spark.sql(f"""
+        SELECT COUNT_IF(source_file_path IS NULL OR source_file_path <> '{source_path}')
+                   AS other_source_rows
+        FROM {table}
+    """).first()
+    if result.other_source_rows:
+        raise ValueError("Taxi zones already have rows with unknown or different "
+                         "source paths; reconcile before loading another path")
+
+
 def run_file(path, spark, options, dbutils=None, display=None):
     path = Path(path).resolve()
     if not path.is_file() or path.suffix != ".py":
