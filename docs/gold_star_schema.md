@@ -1,6 +1,6 @@
 # Gold star schema
 
-The Gold model supports three questions: when and where taxi demand peaks, how weather relates to trips, and which zones show sustained activity. The model is built by `notebooks/04_gold/gold_marts.py` from the three Silver views.
+The Gold model supports three questions: when and where taxi demand peaks, how weather relates to trips, and which zones show sustained activity. The model is built by `pipeline/04_gold/gold_marts.py` from the three Silver views.
 
 ![NYC Mobility Star Schema](img/nyc-mobility-star-schema.jpeg)
 

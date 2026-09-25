@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 
 import pytest
 
@@ -162,7 +163,7 @@ def test_analytics_queries_use_configured_catalog_and_schema(stage, monkeypatch)
             return object()
 
     spark = FakeSpark()
-    run_file(pipeline_dir / f"{stage}.py", spark,
+    run_file(pipeline_dir / "05_analytics" / f"{stage}.py", spark,
              {"catalog": "test_catalog", "gold_schema": "test_gold"},
              dbutils=object(), display=lambda frame: None)
     assert spark.queries
@@ -173,7 +174,7 @@ def test_script_entrypoints_work_without_notebook_file_global():
     import ast
     from pathlib import Path
 
-    for path in (Path(__file__).resolve().parents[1] / "pipeline").glob("*.py"):
+    for path in (Path(__file__).resolve().parents[1] / "pipeline").rglob("*.py"):
         tree = ast.parse(path.read_text())
         entrypoints = [node for node in tree.body if isinstance(node, ast.If)
                        and ast.unparse(node.test) == "__name__ == '__main__'"]
@@ -183,3 +184,11 @@ def test_script_entrypoints_work_without_notebook_file_global():
                          "execute": lambda fn: calls.append(fn)}
             exec(compile(ast.Module(body=[entrypoint], type_ignores=[]), str(path), "exec"), namespace)
             assert calls == [namespace["run"]], path
+
+
+def test_bundle_python_task_paths_exist_after_reorganization():
+    root = Path(__file__).resolve().parents[1]
+    paths = re.findall(r"python_file: \./([^\s]+)", (root / "databricks.yml").read_text())
+    assert len(paths) == 8
+    for path in paths:
+        assert (root / path).is_file(), path

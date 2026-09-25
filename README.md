@@ -12,7 +12,7 @@ Python script tasks for the Green Taxi, weather, and Taxi Zones Bronze → Silve
 | [`docs/dynamic_bronze.md`](docs/dynamic_bronze.md) | Source discovery, ingestion checks, and audit log. |
 | [`docs/`](docs) | Data quality and modeling notes. |
 
-Start a full run with `pipeline/bronze_auto_ingest.py`, followed by Silver checks, Gold, and analytics as described in [the script index](pipeline/README.md). Set Volume directories in Job parameters; the run discovers its months from source filenames and passes the selected range downstream. Existing Job paths continue to point to `pipeline/*.py`.
+Start a full run with `pipeline/01_bronze/bronze_auto_ingest.py`, followed by Silver checks, Gold, and analytics as described in [the script index](pipeline/README.md). Set Volume directories in Job parameters; the run discovers its months from source filenames and passes the selected range downstream. Existing Jobs that use the former flat paths need their Python file paths updated to the numbered folders before the next run.
 
 ## Check locally in VS Code
 

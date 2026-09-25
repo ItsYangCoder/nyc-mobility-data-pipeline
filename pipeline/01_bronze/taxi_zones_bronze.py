@@ -1,8 +1,14 @@
 """Load one Taxi Zones CSV into Bronze, preserving file lineage."""
 
+from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+
 import re
 
-from runtime import Parameters, check_zones_source, ensure_bronze_metadata_columns, execute
+from pipeline.runtime import Parameters, check_zones_source, ensure_bronze_metadata_columns, execute
 
 
 def run(spark, options=None, dbutils=None, display=None):

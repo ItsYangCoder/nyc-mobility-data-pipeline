@@ -58,7 +58,7 @@ def test_bronze_retry_preserves_rows_and_ingestion_time(stage, monkeypatch):
     spark = BronzeSpark()
     fs = Row(ls=lambda path: [Row(name=filename)])
     dbutils = Row(fs=fs)
-    run = lambda: run_file(pipeline_dir / f"{stage}.py", spark, options, dbutils, lambda _: None)
+    run = lambda: run_file(pipeline_dir / "01_bronze" / f"{stage}.py", spark, options, dbutils, lambda _: None)
 
     assert run()["num_inserted_rows"] == 1
     original = list(spark.rows)
@@ -78,5 +78,5 @@ def test_bronze_conflicting_previous_path_blocks_copy(stage, prior_path, monkeyp
     dbutils = Row(fs=Row(ls=lambda path: [Row(name=filename)]))
 
     with pytest.raises(ValueError, match="unknown or different source paths"):
-        run_file(pipeline_dir / f"{stage}.py", spark, options, dbutils, lambda _: None)
+        run_file(pipeline_dir / "01_bronze" / f"{stage}.py", spark, options, dbutils, lambda _: None)
     assert spark.copy_attempts == 0

@@ -1,13 +1,18 @@
 """Discover, validate, and load all Bronze source files with an audit record."""
 
 from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
+
 import re
 import uuid
 from datetime import datetime, timezone
 
-from bronze_preflight import validate_sources
-from runtime import Parameters, execute
-from runtime import run_file
+from pipeline.bronze_preflight import validate_sources
+from pipeline.runtime import Parameters, execute
+from pipeline.runtime import run_file
 from source_discovery import plan_batch
 
 
