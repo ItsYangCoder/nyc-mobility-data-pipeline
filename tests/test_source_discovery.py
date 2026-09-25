@@ -2,7 +2,7 @@ from dataclasses import dataclass
 
 import pytest
 
-from source_discovery import plan_batch, weather_hour_bounds
+from source_discovery import plan_batch, validate_weather_hour_stats, weather_hour_bounds
 
 
 @dataclass(frozen=True)
@@ -123,3 +123,19 @@ def test_weather_hour_bounds_exclude_file_extension(filename, expected):
 def test_weather_hour_bounds_reject_bad_filename():
     with pytest.raises(ValueError, match="Unexpected Weather"):
         weather_hour_bounds("weather_2026-03-01_2026-03-31_metadata.json")
+
+
+def test_weather_coverage_accepts_complete_month():
+    validate_weather_hour_stats(
+        {"rows": 744, "unique": 744, "first": "2026-03-01T00:00", "last": "2026-03-31T23:00"},
+        "weather_2026-03-01_2026-03-31.json",
+    )
+
+
+@pytest.mark.parametrize("rows,unique", [(743, 743), (744, 743), (745, 744)])
+def test_weather_coverage_rejects_missing_or_duplicate_interior_hour(rows, unique):
+    with pytest.raises(ValueError, match="coverage/uniqueness failed"):
+        validate_weather_hour_stats(
+            {"rows": rows, "unique": unique, "first": "2026-03-01T00:00", "last": "2026-03-31T23:00"},
+            "weather_2026-03-01_2026-03-31.json",
+        )
