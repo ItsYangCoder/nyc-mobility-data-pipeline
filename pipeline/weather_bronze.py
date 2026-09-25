@@ -1,6 +1,9 @@
-"""Databricks Spark stage; callable directly from Python tests."""
+"""Load one weather file into Bronze, preserving file lineage."""
+
+import re
 
 from runtime import Parameters, check_weather_file_source, ensure_bronze_metadata_columns, execute
+
 
 def run(spark, options=None, dbutils=None, display=None):
     params = Parameters(options)
@@ -9,11 +12,6 @@ def run(spark, options=None, dbutils=None, display=None):
     if dbutils is None:
         from pyspark.dbutils import DBUtils
         dbutils = DBUtils(spark)
-
-    # The filename and directory are parameters. Repeating COPY INTO on an already loaded file adds no rows; select the next file to continue.
-
-
-    import re
 
     params.register("weather_source_dir", "", "Weather directory")
     params.register("source_file", "", "Weather filename (including extension)")
@@ -42,8 +40,6 @@ def run(spark, options=None, dbutils=None, display=None):
     }[format_name.lower()]
     bronze_table = f"{catalog}.{bronze_schema}.weather_raw"
     print(f"Loading {source_file} ({format_name}) into {bronze_table}")
-
-
     spark.sql(f"CREATE TABLE IF NOT EXISTS {bronze_table}")
     ensure_bronze_metadata_columns(spark, bronze_table)
     check_weather_file_source(spark, bronze_table, source_file,
@@ -68,7 +64,6 @@ def run(spark, options=None, dbutils=None, display=None):
     copy_result = result.first().asDict()
     display(spark.createDataFrame([copy_result]))
     display(spark.sql(f"SELECT COUNT(*) AS bronze_rows FROM {bronze_table}"))
-    import json
     return copy_result
 
 
