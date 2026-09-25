@@ -1,6 +1,6 @@
 """Databricks Spark stage; callable directly from Python tests."""
 
-from runtime import Parameters, ensure_bronze_metadata_columns, execute
+from runtime import Parameters, check_zones_source, ensure_bronze_metadata_columns, execute
 
 def run(spark, options=None, dbutils=None, display=None):
     params = Parameters(options)
@@ -40,6 +40,7 @@ def run(spark, options=None, dbutils=None, display=None):
 
     spark.sql(f"CREATE TABLE IF NOT EXISTS {bronze_table}")
     ensure_bronze_metadata_columns(spark, bronze_table)
+    check_zones_source(spark, bronze_table, f"dbfs:{source_dir}/{source_file}")
     result = spark.sql(f"""
         COPY INTO {bronze_table}
         FROM (
