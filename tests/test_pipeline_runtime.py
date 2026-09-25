@@ -19,7 +19,7 @@ def test_weather_source_guard(source, should_fail):
             assert "2026-03-01" in query and "2026-03-31" in query
             assert "array_min(hourly.time)" in query and "array_max(hourly.time)" in query
             assert "SUBSTRING(CAST(array_min(hourly.time) AS STRING), 1, 10)" in query
-            assert "array_min(hourly.time) IS NULL" in query
+            assert "SUBSTRING(CAST(array_min(hourly.time) AS STRING), 1, 10) IS NULL" in query
             return SimpleNamespace(first=lambda: SimpleNamespace(
                 other_source_rows=int(source != "dbfs:/same.json")))
 
@@ -30,6 +30,28 @@ def test_weather_source_guard(source, should_fail):
             check()
     else:
         check()
+
+
+@pytest.mark.parametrize("extension", ["csv", "parquet"])
+def test_flat_weather_source_guard_accepts_same_path_and_blocks_other_paths(extension):
+    from types import SimpleNamespace
+
+    class FakeSpark:
+        def __init__(self, conflict):
+            self.conflict = conflict
+
+        def table(self, table):
+            return SimpleNamespace(schema=SimpleNamespace(fields=[SimpleNamespace(name="time")]))
+
+        def sql(self, query):
+            assert "SUBSTRING(CAST(`time` AS STRING), 1, 10)" in query
+            assert "source_file_path IS NULL" in query
+            return SimpleNamespace(first=lambda: SimpleNamespace(other_source_rows=self.conflict))
+
+    filename = f"weather_2026-03-01_2026-03-31.{extension}"
+    check_weather_file_source(FakeSpark(0), "c.s.weather_raw", filename, f"dbfs:/same.{extension}")
+    with pytest.raises(ValueError, match="unknown or different"):
+        check_weather_file_source(FakeSpark(1), "c.s.weather_raw", filename, f"dbfs:/same.{extension}")
 
 
 def test_zones_source_guard_blocks_untracked_rows():
