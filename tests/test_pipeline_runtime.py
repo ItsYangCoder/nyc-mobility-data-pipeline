@@ -2,7 +2,33 @@ from pathlib import Path
 
 import pytest
 
-from pipeline.runtime import Parameters, ensure_bronze_metadata_columns, parse_args, run_file
+from pipeline.runtime import Parameters, check_taxi_month_source, ensure_bronze_metadata_columns, parse_args, run_file
+
+
+@pytest.mark.parametrize("source,should_fail", [(None, True), ("dbfs:/different/file.parquet", True),
+                                                   ("dbfs:/same/file.parquet", False)])
+def test_taxi_month_rejects_different_or_unknown_source(source, should_fail):
+    from types import SimpleNamespace
+
+    class FakeSpark:
+        def table(self, table):
+            return SimpleNamespace(schema=SimpleNamespace(fields=[
+                SimpleNamespace(name="lpep_pickup_datetime"),
+                SimpleNamespace(name="source_file_path"),
+            ]))
+
+        def sql(self, query):
+            assert "2026-03-01" in query
+            assert "dbfs:/same/file.parquet" in query
+            return SimpleNamespace(first=lambda: SimpleNamespace(
+                existing_rows=1, other_source_rows=int(source != "dbfs:/same/file.parquet")
+            ))
+
+    if should_fail:
+        with pytest.raises(ValueError, match="unknown or different source paths"):
+            check_taxi_month_source(FakeSpark(), "c.s.t", "2026-03", "dbfs:/same/file.parquet")
+    else:
+        check_taxi_month_source(FakeSpark(), "c.s.t", "2026-03", "dbfs:/same/file.parquet")
 
 
 @pytest.mark.parametrize("present,expected", [
@@ -78,7 +104,6 @@ def test_analytics_queries_use_configured_catalog_and_schema(stage, monkeypatch)
     assert spark.queries
     assert all("test_catalog.test_gold." in query for query in spark.queries)
     assert all("nyc_mobility.nyc_gold." not in query for query in spark.queries)
-
 def test_script_entrypoints_work_without_notebook_file_global():
     """Databricks can launch a workspace script without defining __file__."""
     import ast
